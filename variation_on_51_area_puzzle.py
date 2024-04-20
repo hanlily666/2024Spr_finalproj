@@ -15,6 +15,7 @@ Circled number: since in this variation there is no uncircled clue, all numbers 
 Human, 'H': """
 import itertools
 from collections import Counter
+from typing import Union
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -51,9 +52,14 @@ class Clues:
         self.lower_edge = ((self.row+1, self.col+1), (self.row+1, self.col))
         self.left_edge = ((self.row, self.col), (self.row+1, self.col))
         self.right_edge = ((self.row, self.col+1), (self.row+1, self.col+1))
-        self.neighbor_nodes = [(self.row, self.col), (self.row, self.col+1), (self.row+1, self.col), (self.row+1, self.col+1)]
-        self.surrounded_edges = [((self.row, self.col), (self.row, self.col+1)), ((self.row, self.col),
-                                (self.row+1, self.col)), ((self.row+1, self.col+1), (self.row+1, self.col)), ((self.row, self.col+1), (self.row+1, self.col+1))]
+        # all nodes surrounded the cell; same for the surrounded edges
+        self.neighbor_nodes = [(self.row, self.col), (self.row, self.col + 1), (self.row + 1, self.col),
+                               (self.row + 1, self.col + 1)]
+        self.surrounded_edges = [((self.row, self.col), (self.row, self.col + 1)), ((self.row, self.col),
+                                                                                    (self.row + 1, self.col)),
+                                 ((self.row + 1, self.col + 1), (self.row + 1, self.col)),
+                                 ((self.row, self.col + 1), (self.row + 1, self.col + 1))]
+
         if self.row > 0:
             self.upper_cell = (self.row - 1, self.col)
 
@@ -144,27 +150,37 @@ def create_graph(a_puzzle):
                     G.add_edge((row, col), (neighbor_row, neighbor_col), relationship=0)
 
 
-def solve_puzzle(the_puzzle):
+def provide_clues_hints(the_puzzle):
     count_edges = []
     aliens = Clues.aliens
     cactus = Clues.cactus
     guard = Clues.guard
     circled_number = Clues.circled_number
     direction = None
-    if Clues.is_on_the_left(aliens[0], guard[0]):
-        G.add_edge((aliens[0].row, aliens[0].col + 1), (aliens[0].row + 1, aliens[0].col + 1), relationship=1)
-        G.add_edge((guard[0].row, guard[0].col), (guard[0].row + 1, guard[0].col), relationship=1)
-        direction = 'right'
-    if Clues.is_above(aliens[0], cactus[0]):
-        G.add_edge((aliens[0].row + 1, aliens[0].col), (aliens[0].row + 1, aliens[0].col + 1), relationship=1)
-        G.add_edge((cactus[0].row, cactus[0].col), (cactus[0].row, cactus[0].col + 1), relationship=1)
-        alien_edges = check_clue_status(aliens[0])
-        cross_out_cactus_other_edges(cactus[0], edge_direction='up')
-        if alien_edges >= 2 and direction == 'right' and G.get_edge_data(aliens[0].right_edge[0], aliens[0].right_edge[1])['relationship'] == 1:
-            G.add_edge(aliens[0].left_edge[0], aliens[0].left_edge[1], relationship=1)
-            direction = 'up'
+    # have all combinations of clues, and draw as many clues as possibles
+    for pair in all_possible_combination_of_clues(aliens, guard):
+        if Clues.direction_to(pair[0], pair[1]) == 'left':
+            G.add_edge((pair[0].row, pair[0].col + 1), (pair[0].row + 1, pair[0].col + 1), relationship=1)
+            G.add_edge((pair[1].row, pair[1].col), (pair[1].row + 1, pair[1].col), relationship=1)
+            direction = 'right'
+    for pair in all_possible_combination_of_clues(aliens, cactus):
+        if Clues.direction_to(pair[0], pair[1]) == 'above' and pair[1].row == pair[0].row + 1:
+            G.add_edge((pair[0].row + 1, pair[0].col), (pair[0].row + 1, pair[0].col + 1), relationship=1)
+            G.add_edge((pair[1].row, pair[1].col), (pair[1].row, pair[1].col + 1), relationship=1)
+
+            alien_edges = check_clue_status(pair[0])
+            cross_out_cactus_other_edges(pair[1], edge_direction='up')
+            if alien_edges >= 2 and direction == 'right' and G.get_edge_data(aliens[0].right_edge[0], aliens[0].right_edge[1])['relationship'] == 1:
+                G.add_edge(aliens[0].left_edge[0], aliens[0].left_edge[1], relationship=1)
+                direction = 'up'
 
     if Clues.direction_to(circled_number[0], cactus[0]) == 'above':
+        pass
+    # start with the alien node; check their relative location to other clue; make deduction first
+    # connect all edges that attributes are not 2
+    # if met a node that has three edges, then go back and mark that one as 2
+    # keep track of all the nodes starting with the alien
+    # in the end it should form a loop that encounters the original node again
 
 
 
@@ -172,34 +188,37 @@ def solve_puzzle(the_puzzle):
 
     # find if there are any walls at the same row or col of the circled number
     # if :
-    relationship = nx.get_edge_attributes(G, "relationship")
-    for edges, value in relationship.items():
-        if value == 1:
-            # edges = edges.split(',')
-            count_edges.append(edges)
-    node_with_corner = [node for node, count in Counter(count_edges).items() if count >= 1]
-    print(node_with_corner)
+
+    # relationship = nx.get_edge_attributes(G, "relationship")
+    # for edges, value in relationship.items():
+    #     if value == 1:
+    #         # edges = edges.split(',')
+    #         count_edges.append(edges)
+    # node_with_corner = [node for node, count in Counter(count_edges).items() if count >= 1]
+    # print(node_with_corner)
+
         # compare the position of two edges
 
-    # if len(aliens) > 1 or len(cactus) > 1:
-    #     possible_combinations = list(itertools.product(aliens, cactus))
-    #
-    # else:
-    #     if Clues.is_above(aliens[0], cactus[0], ):
-    #         Clues.is_on_the_right(aliens[0], cac
+
+def all_possible_combination_of_clues(clue1, clue2):
+    if len(clue1) > 1 or len(clue2) > 1:
+        possible_combinations_between_alien_cactus = list(itertools.product(clue1, clue2))
+    else:
+        possible_combinations_between_alien_cactus = [(clue1[0], clue2[0])]  # only one for each clue
+    return possible_combinations_between_alien_cactus
 
 
 def cross_out_edge(clue_position):
     for edge in G.edges(clue_position, data=True):
         if edge[-1]['relationship'] == 0:
-            G.add_edge(edge[0], edge[1], relationship=2)
+            G.add_edge(edge[0], edge[1], relationship='x')
 
 
 def cross_out_cactus_other_edges(clue_position, edge_direction=None):
     if edge_direction == 'up':
-        G.add_edge(clue_position.right_edge[0], clue_position.right_edge[1], relationship=2)
-        G.add_edge(clue_position.lower_edge[0], clue_position.lower_edge[1], relationship=2)
-        G.add_edge(clue_position.left_edge[0], clue_position.left_edge[1], relationship=2)
+        G.add_edge(clue_position.right_edge[0], clue_position.right_edge[1], relationship='x')
+        G.add_edge(clue_position.lower_edge[0], clue_position.lower_edge[1], relationship='x')
+        G.add_edge(clue_position.left_edge[0], clue_position.left_edge[1], relationship='x')
 
 
 def check_clue_status(clue_position):
@@ -214,7 +233,6 @@ def check_clue_status(clue_position):
             if edge[-1]['relationship'] == 1:
                 number_of_confirmed_relationship += 1
                 if number_of_confirmed_relationship == 2:
-                    print(node)
                     cross_out_edge(node)
 
     return number_of_edges_connected
@@ -271,8 +289,104 @@ def check_clue_status(clue_position):
 #                     col_of_clue = neighbor_col
 
 
-def exists_cacutus(position_of_clue):
-    pass
+class StackDictionary(dict):
+    """Subclass a standard dictionary and add convenience methods to make it
+        easier to use simultaneously as a stack of key/value pairs.
+
+        Since Python 3.6+ the insertion order of dict keys is retained internally.
+        There is a popitem() method which returns and removes the last-added item
+        (a key/value pair).
+
+        However, there isn't a convenient way to non-destructively VIEW the top
+        item and keep it on the stack. In this program that feature is desirable."""
+
+    def peek(self) -> Union[tuple, None]:
+        """Allows getting the top item of the StackDictionary while leaving it
+        there. This is implemented by actually using popitem() but then
+        adding it back in automatically.
+        :returns: None if empty dict. Otherwise, the top item.
+        >>> stack_dict = StackDictionary({(0, 1): {'horiz': False, 'cells': ((0,0), (1,0))},
+        ...                               (0, 0): {'horiz': True,  'cells': ((0,1), (0,2))}})
+        >>> stack_dict.peek()
+        ((0, 0), {'horiz': True, 'cells': ((0, 1), (0, 2))})
+        >>> empty_dict = StackDictionary({})
+        >>> empty_dict.peek()
+        >>> print(empty_dict.peek())
+        None
+        """
+
+        top_item = self.popitem()  # get last-added item.
+        if top_item is None:
+            return None
+        self[top_item[0]] = top_item[1]  # Re-insert the key & value into the dict.
+        return top_item
+
+    def popitem(self) -> Union[tuple, None]:
+        """Wraps the dict superclass implementation of popitem() so this will
+        return None when empty instead of throwing an exception.
+        >>> stack_dict = StackDictionary({(0, 1): {'horiz': False, 'cells': ((0,0), (1,0))},
+        ...                               (0, 0): {'horiz': True,  'cells': ((0,1), (0,2))}})
+        >>> stack_dict.popitem()
+        ((0, 0), {'horiz': True, 'cells': ((0, 1), (0, 2))})
+
+        >>> empty_dict = StackDictionary({})
+        >>> empty_dict.popitem()
+        >>> print(empty_dict.popitem())
+        None
+        """
+        try:
+            result = super().popitem()
+            return result
+        except KeyError:
+            return None
+
+
+class Solver:
+    def __init__(self, the_puzzle):
+        self.solutions_found = []  # if multiple solutions, this would be nested list
+        self.clues_in_solution = {}
+        self.traversed_nodes = StackDictionary()
+        self.clues = Clues.clues
+        self.starting_puzzle = the_puzzle
+        self.loop_detection = False
+
+    def is_valid_connection(self, node1, node2) -> bool:
+        """
+        check whether this node is valid to be added in the traversed edges.
+        :param node1: The node before being added to the traversed edges (stack dictionary)
+        :param node2: The node before being added to the traversed edges (stack dictionary)
+
+        :return: boolean
+        >>> the_node = (1, 1)
+        >>> G.add_edges_from([((0, 1),(1,1)), ((1, 0),(1,1)), ((1,1), (2,1))])
+        >>> puzzle = [[None, None, None],
+        ...            ['A', None, 'G'],
+        ...            ['C', None, 3]]
+        >>> graph = Solver(puzzle)
+        >>> graph.is_valid_connection(the_node)
+        False
+
+        """
+        if len(G.edges(node1)) >= 2 or len(G.edges(node2)) >= 2:
+            return False
+        if G.get_edge_data(node1, node2)['relationship'] == 'x':
+            return False
+        return True
+
+    def is_valid_solution(self, the_solution: list) -> bool:
+        if self.loop_detection:
+            for clue in self.clues:
+                if clue != 'C':
+                    if self.clues_in_solution[clue] != self.clues[clue]:
+                        return False
+
+    def dfs_solver(self):
+        provide_clues_hints(self.starting_puzzle)
+        aliens = Clues.aliens
+        # starting from one alien to traverse the puzzle
+        number_of_connected_edge = 0
+
+
 
 def generate_puzzle():
     pass
@@ -286,15 +400,16 @@ if __name__ == '__main__':
     valid_puzzle = [[None, None, None],
                     ['A', None, 'G'],
                     ['C', None, 3]]
-
     create_graph(valid_puzzle)
-    print(G.nodes)
+
     pos = {node: node for node in G.nodes()}
 
     # pos = nx.spring_layout(G)
     nx.draw_networkx_nodes(G, pos, node_size=700)
 
-    solve_puzzle(valid_puzzle)
+    solve_puzzle = Solver(valid_puzzle)
+    solve_puzzle.dfs_solver()
+
     node_labels = nx.get_node_attributes(G, 'clue')
     nx.draw_networkx_labels(G, pos, labels=node_labels)
     clue_labels = nx.get_edge_attributes(G, 'relationship')
