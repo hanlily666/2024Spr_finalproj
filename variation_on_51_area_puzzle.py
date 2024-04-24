@@ -351,6 +351,7 @@ class Solver:
 
     def check_edge_status(self, node1, node2, current_graph):
         status = current_graph.get_edge_data(node1, node2)['relationship']
+        print(f'ndoe1 {node1} node2 {node2} status {status}')
         if status == 1:
             return 1
         elif status == 0:
@@ -368,15 +369,19 @@ class Solver:
         :param node:
         :return:
         """
-        if not self.visited_node:
+        # if there is no move yet
+        if not self.visited_edge:
             if 'clue' in self.starting_graph.nodes[node]:
                 the_clue = self.starting_graph.nodes[node]['clue']
             self.starting_graph.add_edge(node, neighbors[0], relationship=1)
-            self.visited_node.append(node)
-            self.visited_node.append(neighbors[0])
-            self.visited_edge.append(sorted((node, neighbors[0])))
+            print(f'node {node} neighbor {neighbors[0]}')
+            print(self.starting_graph[node][neighbors[0]]['relationship'])
+            # self.visited_node.append(node)
+            # self.visited_node.append(neighbors[0])
+            the_edge = tuple(sorted((node, neighbors[0])))
+            self.visited_edge.append(the_edge)
             neighbors.remove(neighbors[0])
-            self.traversed_nodes[node]['move'].append((tuple(sorted((node, neighbors[0]))), 1))
+            self.traversed_nodes[node]['move'].append((the_edge, 1))
             if self.check_clue_status(node, self.starting_graph) == 2:
                 self.cross_out_edges_if_two_edges(node, self.starting_graph)
             return True
@@ -384,7 +389,7 @@ class Solver:
             if not neighbors:
                 return False
             # elif tuple(sorted((node, neighbors[0]))) in self.visited_edge:
-            elif node in self.visited_node:
+            elif tuple(sorted((node, neighbors[0]))) in self.visited_edge:
                 self.loop_detection = True
                 print(self.loop_detection)
                 # if self.is_valid_solution():
@@ -393,11 +398,14 @@ class Solver:
                 return False
             else:
                 self.starting_graph.add_edge(node, neighbors[0], relationship=1)
-                self.visited_edge.append(sorted((node, neighbors[0])))
+                print(f'node {node} neighbor {neighbors[0]}')
+                print(self.starting_graph[node][neighbors[0]]['relationship'])
+                the_edge = tuple(sorted((node, neighbors[0])))
+                self.visited_edge.append(the_edge)
                 neighbors.remove(neighbors[0])
-                self.traversed_nodes[node]['move'].append((tuple(sorted((node, neighbors[0]))), 1))
-                self.visited_node.append(node)
-                self.visited_node.append(neighbors[0])
+                self.traversed_nodes[node]['move'].append((the_edge, 1))
+                # self.visited_node.append(node)
+                # self.visited_node.append(neighbors[0])
                 if self.check_clue_status(node, self.starting_graph) == 2:
                     self.cross_out_edges_if_two_edges(node, self.starting_graph)
                 return True
@@ -419,19 +427,19 @@ class Solver:
             return 0, 0
         else:
             current_node = self.traversed_nodes.peek()[0]
-            if current_state[1]['neighbors']:
-                neighbors = current_state[1]['neighbors']
-                if neighbors:
-                    for neighbor in neighbors:
-                        if neighbor not in self.visited_node:
-                            neighbors.remove(neighbor)
-                            return neighbor
+            if current_state[1]['move']:
+                moves = current_state[1]['move']
+                if moves:
+                    for move in moves:
+                        if move[-1] == 1:
+                            for next_node in move[0]:
+                                if next_node != current_node:
+                                    return next_node
 
     def find_valid_neighbors(self, node):
         valid_neighbors = []
         neighbors = list(self.starting_graph.neighbors(node))
-        # if not neighbors:
-        #
+        print(list(self.starting_graph.neighbors(node)))
         for neighbor in neighbors:
             status = self.check_edge_status(neighbor, node, self.starting_graph)
             if status != 'x' and status != 1:
@@ -458,6 +466,8 @@ class Solver:
                             self.backtrack()
                     else:
                         self.backtrack()
+                print(self.traversed_nodes)
+
                 self.draw_graph(self.starting_graph)
 
 
