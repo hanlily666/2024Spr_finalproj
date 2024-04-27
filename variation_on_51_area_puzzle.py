@@ -30,6 +30,7 @@ class Clues:
     cactus = []
     guard = []
     circled_number = []
+
     def __init__(self, position, clue_type, puzzle_size):
         self.position = position
         self.row = position[0]
@@ -229,31 +230,38 @@ class StackDictionary(dict):
         >>> print(empty_dict.peek())
         None
         """
-
         top_item = self.popitem()  # get last-added item.
         if top_item is None:
             return None
         self[top_item[0]] = top_item[1]  # Re-insert the key & value into the dict.
         return top_item
 
-    def popitem(self) -> Union[tuple, None]:
-        """Wraps the dict superclass implementation of popitem() so this will
-        return None when empty instead of throwing an exception.
-        >>> stack_dict = StackDictionary({(0, 1): {'horiz': False, 'cells': ((0,0), (1,0))},
-        ...                               (0, 0): {'horiz': True,  'cells': ((0,1), (0,2))}})
-        >>> stack_dict.popitem()
-        ((0, 0), {'horiz': True, 'cells': ((0, 1), (0, 2))})
-
-        >>> empty_dict = StackDictionary({})
-        >>> empty_dict.popitem()
-        >>> print(empty_dict.popitem())
-        None
-        """
-        try:
-            result = super().popitem()
-            return result
-        except KeyError:
+    def peek_last_two(self):
+        if len(self) < 2:
             return None
+        keys = list(self.keys())
+        second_last_key = keys[-2]
+        return self[second_last_key]
+
+
+    def popitem(self) -> Union[tuple, None]:
+            """Wraps the dict superclass implementation of popitem() so this will
+            return None when empty instead of throwing an exception.
+            >>> stack_dict = StackDictionary({(0, 1): {'horiz': False, 'cells': ((0,0), (1,0))},
+            ...                               (0, 0): {'horiz': True,  'cells': ((0,1), (0,2))}})
+            >>> stack_dict.popitem()
+            ((0, 0), {'horiz': True, 'cells': ((0, 1), (0, 2))})
+
+            >>> empty_dict = StackDictionary({})
+            >>> empty_dict.popitem()
+            >>> print(empty_dict.popitem())
+            None
+            """
+            try:
+                result = super().popitem()
+                return result
+            except KeyError:
+                return None
 
 
 class Solver:
@@ -289,7 +297,7 @@ class Solver:
                     if 0 <= neighbor_row < row_of_puzzle and 0 <= neighbor_col < col_of_puzzle:
                         self.starting_graph.add_edge((row, col), (neighbor_row, neighbor_col), relationship=0)
 
-    def is_valid_connection(self, node1, node2, graph_state) -> bool:
+    def is_valid_connection(self, node, neighbor, graph_state) -> bool:
         """
         check whether this node is valid to be added in the traversed edges.
         :param node1: The node before being added to the traversed edges (stack dictionary)
@@ -306,11 +314,30 @@ class Solver:
         False
 
         """
-        if len(graph_state.edges(node1)) >= 2 or len(graph_state.edges(node2)) >= 2:
-            return False
-        if graph_state.get_edge_data(node1, node2)['relationship'] == 'x':
-            return False
-        return True
+        last_move = self.traversed_nodes.peek()[1]['move']
+        last_node = self.traversed_nodes.peek()[0]
+        for move in last_move:
+            if move[-1] == 1:
+                the_last_edge = move[0]
+                break
+        if node in Clues.clue_position:
+            clue_object = Clues.clue_position[node]
+            the_clue_type = Clues.clue_position[node].clue
+            current_edge = tuple(sorted((node, neighbor)))
+            if the_clue_type == 'A':
+                if last_node[0] < node[0]:
+                    if current_edge == clue_object.upper_edge:
+                        return False
+                if last_node[1] == node[1]:
+                    if current_edge == clue_object.left_edge:
+                        return False
+
+        # check if the edge is one of the edges of the clue
+
+
+
+
+
 
     def is_valid_solution(self) -> bool:
         # if self.loop_detection:
@@ -333,17 +360,25 @@ class Solver:
             if Clues.direction_to(pair[0], pair[1]) == 'left':
                 self.starting_graph.add_edge((pair[0].row, pair[0].col + 1), (pair[0].row + 1, pair[0].col + 1), relationship=1)
                 self.starting_graph.add_edge((pair[1].row, pair[1].col), (pair[1].row + 1, pair[1].col), relationship=1)
+                self.solutions_found.append(tuple(sorted(((pair[0].row, pair[0].col + 1), (pair[0].row + 1, pair[0].col + 1)))))
+                self.solutions_found.append(tuple(sorted(((pair[0].row, pair[0].col), (pair[0].row + 1, pair[0].col)))))
+
                 direction = 'right'
         for pair in self.all_possible_combination_of_clues(aliens, cactus):
             if Clues.direction_to(pair[0], pair[1]) == 'above' and pair[1].row == pair[0].row + 1:
                 self.starting_graph.add_edge((pair[0].row + 1, pair[0].col), (pair[0].row + 1, pair[0].col + 1), relationship=1)
                 self.starting_graph.add_edge((pair[1].row, pair[1].col), (pair[1].row, pair[1].col + 1), relationship=1)
-
-                alien_edges = self.check_clue_status(pair[0], self.starting_graph)
+                self.solutions_found.append(
+                    tuple(sorted(((pair[0].row + 1, pair[0].col), (pair[0].row + 1, pair[0].col + 1)))))
+                self.solutions_found.append(tuple(sorted(((pair[1].row, pair[1].col), (pair[1].row, pair[1].col + 1)))))
+                alien_edges = self.check_clue_status((pair[0].row, pair[0].col), self.starting_graph)
                 self.cross_out_cactus_other_edges(pair[1], edge_direction='up')
                 if alien_edges >= 2 and direction == 'right' and \
                         self.starting_graph.get_edge_data(aliens[0].right_edge[0], aliens[0].right_edge[1])['relationship'] == 1:
                     self.starting_graph.add_edge(aliens[0].left_edge[0], aliens[0].left_edge[1], relationship=1)
+                    self.solutions_found.append(
+                        tuple(sorted((aliens[0].left_edge[0], aliens[0].left_edge[1]))))
+
                     direction = 'up'
 
         if Clues.direction_to(circled_number[0], cactus[0]) == 'above':
@@ -351,7 +386,6 @@ class Solver:
 
     def check_edge_status(self, node1, node2, current_graph):
         status = current_graph.get_edge_data(node1, node2)['relationship']
-        print(f'ndoe1 {node1} node2 {node2} status {status}')
         if status == 1:
             return 1
         elif status == 0:
@@ -359,8 +393,74 @@ class Solver:
         elif status == 'x':
             return 'x'
 
-    def follow_alien_rule(self):
-        pass
+    def follow_alien_rule(self, node):
+        the_clue = Clues.clue_position[node]
+        last_edge = None
+        # self.check_clue_status(node, self.starting_graph)
+        if self.visited_edge:
+            for move in self.traversed_nodes.peek_last_two()['move']:
+                if move[-1] == 1:
+                    last_edge = move[0]  # e.g. ((1, 0), (2, 0))
+                    print(f'last edge {last_edge}')
+                    break
+                else:
+                    last_edge = ''
+            if the_clue.clue == 'A':
+                for edge in the_clue.surrounded_edges:
+                    if edge == the_clue.left_edge and self.check_edge_status(edge[0], edge[1], self.starting_graph) == 1:
+                        print(f'last edge is {last_edge}')
+                        for last_node in last_edge:
+                            print(f'last node {last_node}')
+                            if last_node != node:
+                                if last_node[1] == node[1]:
+                                    self.starting_graph.add_edge(the_clue.upper_edge[0], the_clue.upper_edge[1], relationship='x')
+                                    print('followed')
+                    if edge == the_clue.upper_edge and self.check_edge_status(edge[0], edge[1], self.starting_graph) == 1:
+                        for last_node in last_edge:
+                            if last_node != node:
+                                if last_node[1] == node[1]:
+                                    self.starting_graph.add_edge(the_clue.left_edge[0], the_clue.left_edge[1], relationship='x')
+                                    if the_clue.upper_edge[1][1] + 1 < len(self.starting_puzzle[0]) + 1:
+                                        self.starting_graph.add_edge(the_clue.upper_edge[1][0], the_clue.upper_edge[1][1] + 1, relationship='x')
+
+    def follow_cactus_rule(self, node):
+        the_clue = Clues.clue_position[node]
+        last_edge = None
+        # self.check_clue_status(node, self.starting_graph)
+        if self.visited_edge:
+            for move in self.traversed_nodes.peek()[1]['move']:
+                if move[-1] == 1:
+                    last_edge = move[0]  # e.g. ((1, 0), (2, 0))
+                    print(f'last edge {last_edge}')
+                    break
+                else:
+                    last_edge = ''
+            if the_clue.row == len(self.starting_puzzle) - 1:
+                print('yep cross it out')
+                self.starting_graph.add_edge(the_clue.left_edge[0], the_clue.left_edge[1], relationship='x')
+            # for edge in the_clue.surrounded_edges:
+            #     if edge == the_clue.left_edge:
+            #         print(f'last edge is {last_edge}')
+            #         for last_node in last_edge:
+            #             print(f'last node {last_node}')
+            #             if last_node != node:
+            #                 if last_node[1] == node[1]:
+            #                     self.starting_graph.add_edge(the_clue.upper_edge[0], the_clue.upper_edge[1],
+            #                                                  relationship='x')
+            #                     print('followed')
+
+    def check_cell_status(self, the_edge1, the_edge2) -> tuple:
+        """
+        find the top left corner node position (the cell) given two edges
+        :param the_edge1: edge of the graph
+        :param the_edge2: edge of the graph
+        :return: (row, col) position
+        """
+        node1, node2 = the_edge1
+        node3, node4 = the_edge2
+        row = min(node1[0], node2[0], node3[0], node4[0])
+        col = min(node1[1], node2[1], node3[1], node4[1])
+        return row, col
 
     def make_connection(self, node, neighbors):
         """
@@ -373,19 +473,25 @@ class Solver:
         if not self.visited_edge:
             if 'clue' in self.starting_graph.nodes[node]:
                 the_clue = self.starting_graph.nodes[node]['clue']
-            self.starting_graph.add_edge(node, neighbors[0], relationship=1)
-            print(f'node {node} neighbor {neighbors[0]}')
-            print(self.starting_graph[node][neighbors[0]]['relationship'])
-            # self.visited_node.append(node)
-            # self.visited_node.append(neighbors[0])
-            the_edge = tuple(sorted((node, neighbors[0])))
-            self.visited_edge.append(the_edge)
-            neighbors.remove(neighbors[0])
-            self.traversed_nodes[node]['move'].append((the_edge, 1))
-            if self.check_clue_status(node, self.starting_graph) == 2:
-                self.cross_out_edges_if_two_edges(node, self.starting_graph)
-            return True
+            for neighbor in neighbors:
+                if self.check_edge_status(node, neighbor, self.starting_graph) == 0:
+                    self.starting_graph.add_edge(node, neighbor, relationship=1)
+                    print(f'node {node} neighbor {neighbor}')
+                    print(self.starting_graph[node][neighbor]['relationship'])
+                    # self.visited_node.append(node)
+                    # self.visited_node.append(neighbors[0])
+                    the_edge = tuple(sorted((node, neighbor)))
+                    self.visited_edge.append(the_edge)
+                    neighbors.remove(neighbor)
+                    self.traversed_nodes[node]['move'].append((the_edge, 1))
+                    if self.check_clue_status(node, self.starting_graph) == 2:
+                        self.cross_out_edges_if_two_edges(node, self.starting_graph)
+                    return True
         else:
+            # if node[0] < len(self.starting_puzzle) and node[1] < len(self.starting_puzzle[1]):
+            #     the_clue = Clues.clue_position[node]
+            #     if the_clue.clue == 'C':
+            #         self.follow_cactus_rule(node)
             if not neighbors:
                 return False
             # elif tuple(sorted((node, neighbors[0]))) in self.visited_edge:
@@ -397,18 +503,21 @@ class Solver:
                 # else:
                 return False
             else:
-                self.starting_graph.add_edge(node, neighbors[0], relationship=1)
-                print(f'node {node} neighbor {neighbors[0]}')
-                print(self.starting_graph[node][neighbors[0]]['relationship'])
-                the_edge = tuple(sorted((node, neighbors[0])))
-                self.visited_edge.append(the_edge)
-                neighbors.remove(neighbors[0])
-                self.traversed_nodes[node]['move'].append((the_edge, 1))
-                # self.visited_node.append(node)
-                # self.visited_node.append(neighbors[0])
-                if self.check_clue_status(node, self.starting_graph) == 2:
-                    self.cross_out_edges_if_two_edges(node, self.starting_graph)
-                return True
+                for neighbor in neighbors:
+                    if self.check_edge_status(node, neighbor, self.starting_graph) == 0:
+                        self.is_valid_connection()
+                        self.starting_graph.add_edge(node, neighbor, relationship=1)
+                        print(f'node {node} neighbor {neighbor}')
+                        print(self.starting_graph[node][neighbor]['relationship'])
+                        the_edge = tuple(sorted((node, neighbor)))
+                        self.visited_edge.append(the_edge)
+                        neighbors.remove(neighbor)
+                        self.traversed_nodes[node]['move'].append((the_edge, 1))
+                        # self.visited_node.append(node)
+                        # self.visited_node.append(neighbors[0])
+                        if self.check_clue_status(node, self.starting_graph) == 2:
+                            self.cross_out_edges_if_two_edges(node, self.starting_graph)
+                        return True
         # try:
         #     if node not in self.visited_node:
         #         status = self.check_edge_status(current_node, node, current_graph)
@@ -439,12 +548,21 @@ class Solver:
     def find_valid_neighbors(self, node):
         valid_neighbors = []
         neighbors = list(self.starting_graph.neighbors(node))
+        # if not neighbors:
+        #
+        potential_next_node = True
         print(list(self.starting_graph.neighbors(node)))
+        # if node[0] < len(self.starting_puzzle) and node[1] < len(self.starting_puzzle[1]):
+        #     the_clue = Clues.clue_position[node]
+        #     if the_clue.clue == 'A':
+                # self.follow_alien_rule(node)
         for neighbor in neighbors:
             status = self.check_edge_status(neighbor, node, self.starting_graph)
+            if status == 1 and tuple(sorted((neighbor, node))) in self.solutions_found:
+                potential_next_node = False
             if status != 'x' and status != 1:
                 valid_neighbors.append(neighbor)
-        return valid_neighbors
+        return potential_next_node, valid_neighbors
 
     def brute_force_solver(self):
         self.create_graph()
@@ -456,9 +574,13 @@ class Solver:
             try:
                 # direction = 'up'
                 next_node = self.next_valid_node()
-                neighbors = self.find_valid_neighbors(next_node)
+                next_round, neighbors = self.find_valid_neighbors(next_node)
                 self.traversed_nodes[next_node] = {'neighbors': neighbors, 'move': []}
                 successful_edge = self.make_connection(next_node, neighbors)
+                # if next_node[0] < len(self.starting_puzzle) and next_node[1] < len(self.starting_puzzle[1]):
+                #     the_clue = Clues.clue_position[next_node]
+                #     if the_clue.clue == 'A':
+                #         self.follow_alien_rule(next_node)
                 if not successful_edge:
                     if self.loop_detection:
                         self.is_valid_solution()
@@ -469,8 +591,6 @@ class Solver:
                 print(self.traversed_nodes)
 
                 self.draw_graph(self.starting_graph)
-
-
 
             except ValueError as ex:
                 if ex.args[0] == 'Backtracked all the way to beginning. No more solutions.':
@@ -542,15 +662,18 @@ class Solver:
 
     def check_clue_status(self, clue_position, graph):
         number_of_edges_connected = 0
-        # clue = Clues.clue_position[clue_position]
-        # the_clue = Clues(clue_position, clue, self.starting_puzzle)
-        for edge in graph.edges(clue_position):
-            if graph.get_edge_data(edge[0], edge[1])["relationship"] == 1:
-                number_of_edges_connected += 1
-        # if one node has two edges connected already, then cross out the other two edges that connect to the node
-        self.cross_out_edges_if_two_edges(clue_position, graph)
+        if clue_position[0] > 2 or clue_position[1] > 2:
+            pass
+        else:
+            # clue = Clues.clue_position[clue_position]
+            # the_clue = Clues(clue_position, clue, self.starting_puzzle)
+            for edge in graph.edges((clue_position[0], clue_position[1])):
+                if graph.get_edge_data(edge[0], edge[1])["relationship"] == 1:
+                    number_of_edges_connected += 1
+            # if one node has two edges connected already, then cross out the other two edges that connect to the node
+            self.cross_out_edges_if_two_edges(clue_position, graph)
 
-        return number_of_edges_connected
+            return number_of_edges_connected
 
     def cross_out_edges_if_two_edges(self, node_position, graph_state):
         potential_node_to_cross_out = []
@@ -570,6 +693,11 @@ class Solver:
         self.draw_graph(self.starting_graph)
 
     def draw_graph(self, graph_state):
+        # max_y = max(y for _, y in graph_state.nodes())
+        #
+        # # Invert the y-coordinate of each node.
+        # pos = {node: (x, max_y - y) for node, (x, y) in graph_state.nodes(data='pos')}
+
         pos = {node: node for node in graph_state.nodes()}
 
         # pos = nx.spring_layout(G)
