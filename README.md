@@ -1,7 +1,7 @@
 ## Area 51 Variation
 
 This program aims to design and implement a variation on the 51 area puzzle. The inspiration is from
-https://krazydad.com/area51/
+https://krazydad.com/area51/ and Mr. John Weible.
 
 ## Design:
 

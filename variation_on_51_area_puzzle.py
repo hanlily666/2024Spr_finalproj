@@ -4,10 +4,10 @@ Title: The final project for 2024 Spring IS 597
 Content: This program aims to design and implement a variation on the 51 area puzzle. The inspiration is from
 https://krazydad.com/area51/
 Design: I would get rid of the uncircled numbers but add the Air Force
-protection around fences. Air Force security humans always patrol along the (inside of) the fence line. (meaning the
+protection around fences. Air Force security humans always patrol along the (inside) the fence line. (meaning the
 fence must be adjacent to every human on at least one side)
-Cactus, 'C': it can only be outside of the fences
-Alien, 'A': it can only be inside of the fences
+Cactus, 'C': it can only be outside the fences
+Alien, 'A': it can only be inside the fences
 Circled number: since in this variation there is no uncircled clue, all numbers mean the circled clue
                   It means are always inside the fence; they indicate visibility conditions.
                   This number counts the total squares visible looking north, south, east, and west from the coded location,
@@ -48,10 +48,14 @@ class Clues:
         # all nodes surrounded the cell; same for the surrounded edges
         self.neighbor_nodes = [(self.row, self.col), (self.row, self.col + 1), (self.row + 1, self.col),
                                (self.row + 1, self.col + 1)]
-        self.surrounded_edges = [((self.row, self.col), (self.row, self.col + 1)), ((self.row, self.col),
-                                                                                    (self.row + 1, self.col)),
-                                 ((self.row + 1, self.col + 1), (self.row + 1, self.col)),
-                                 ((self.row, self.col + 1), (self.row + 1, self.col + 1))]
+        self.surrounded_edges = [
+            tuple(sorted(edge)) for edge in [
+                ((self.row, self.col), (self.row, self.col + 1)),
+                ((self.row, self.col), (self.row + 1, self.col)),
+                ((self.row + 1, self.col + 1), (self.row + 1, self.col)),
+                ((self.row, self.col + 1), (self.row + 1, self.col + 1))
+            ]
+        ]
 
         if self.row > 0:
             self.upper_cell = (self.row - 1, self.col)
@@ -299,7 +303,7 @@ class Solver:
                     if 0 <= neighbor_row < row_of_puzzle and 0 <= neighbor_col < col_of_puzzle:
                         self.starting_graph.add_edge((row, col), (neighbor_row, neighbor_col), relationship=0)
 
-    def is_valid_connection(self, node, neighbor) -> bool:
+    def is_valid_connection(self, connected_edge) -> bool:
         """
         check whether this connection violates any rule.
         :param node1: The node before being added to the traversed edges (stack dictionary)
@@ -309,17 +313,26 @@ class Solver:
         """
         # check whether alien has any edge and what the color of edge's other side is.
         # the same for the other clues
-        for alien in Clues.aliens:
-            if alien.color == 'Blue':
-                return False
+        if connected_edge:
+            node, the_connected_edge = connected_edge
+            if node in Clues.clue_position:
+                the_clue = Clues.clue_position[node]
+                if Clues.clue_position[node].color == 'Blue':
+                    if the_connected_edge in the_clue.surrounded_edges:
+                        if the_connected_edge[0] == 0 or the_connected_edge[1] == len(self.starting_puzzle) or the_connected_edge[1] == 0 or the_connected_edge[1] == len(self.starting_puzzle[0]):
+                            return False
+            else:
+                for alien in Clues.aliens:
+                    if alien.color == 'Blue':
+                        return False
 
-        for cactus in Clues.cactus:
-            if cactus.color == 'Green':
-                return False
+                for cactus in Clues.cactus:
+                    if cactus.color == 'Green':
+                        return False
 
-        for guard in Clues.guard:
-            if guard.color == 'Blue':
-                return False
+                for guard in Clues.guard:
+                    if guard.color == 'Blue':
+                        return False
 
         return True
 
@@ -430,17 +443,15 @@ class Solver:
         the_clue = Clues.clue_position[node]
         last_edge = None
         # self.check_clue_status(node, self.starting_graph)
-        if self.visited_edge:
-            for move in self.traversed_nodes.peek()[1]['move']:
-                if move[-1] == 1:
-                    last_edge = move[0]  # e.g. ((1, 0), (2, 0))
-                    print(f'last edge {last_edge}')
-                    break
-                else:
-                    last_edge = ''
-            if the_clue.row == len(self.starting_puzzle) - 1:
-                print('yep cross it out')
-                self.starting_graph.add_edge(the_clue.left_edge[0], the_clue.left_edge[1], relationship='x')
+
+        if the_clue.row == len(self.starting_puzzle) - 1:
+            print('yep cross it out')
+            self.starting_graph.add_edge(the_clue.left_edge[0], the_clue.left_edge[1], relationship='x')
+            self.starting_graph.add_edge(the_clue.lower_edge[0], the_clue.lower_edge[1], relationship='x')
+        elif the_clue.col == len(self.starting_puzzle[0]):
+            self.starting_graph.add_edge(the_clue.upper_edge[0], the_clue.upper_edge[1], relationship='x')
+            self.starting_graph.add_edge(the_clue.right_edge[0], the_clue.right_edge[1], relationship='x')
+
             # for edge in the_clue.surrounded_edges:
             #     if edge == the_clue.left_edge:
             #         print(f'last edge is {last_edge}')
@@ -480,11 +491,12 @@ class Solver:
 
     def add_color(self, node, neighbor):
         if node[0] == 0 or node[0] == len(self.starting_puzzle) or node[0] == 0 or node[0] == len(self.starting_puzzle[0]):
-            if neighbor[0] == 0 or neighbor[0] == len(self.starting_puzzle) or neighbor[0] == 0 or neighbor[0] == len(self.starting_puzzle[0]):
-                if node in Clues.clue_position:
-                    # this color represents the cell's color
-                    self.traversed_nodes[node]['color'] = (node, 'Green')
-                    Clues.clue_position[node].add_clue_color('Green')
+            if neighbor:
+                if neighbor[0] == 0 or neighbor[0] == len(self.starting_puzzle) or neighbor[0] == 0 or neighbor[0] == len(self.starting_puzzle[0]):
+                    if node in Clues.clue_position:
+                        # this color represents the cell's color
+                        self.traversed_nodes[node]['color'] = (node, 'Green')
+                        Clues.clue_position[node].add_clue_color('Green')
         if node in Clues.clue_position:
             if Clues.clue_position[node].clue == 'A':
                 self.clues_in_solution['A'] = [node]
@@ -494,6 +506,7 @@ class Solver:
                 self.reverse_color_on_other_side(node, 'Green')
             elif Clues.clue_position[node].clue == 'C':
                 self.traversed_nodes[node]['color'] = (node, 'Blue')
+                self.follow_cactus_rule(node)
                 Clues.clue_position[node].add_clue_color('Blue')
                 self.reverse_color_on_other_side(node, 'Blue')
             elif Clues.clue_position[node].clue == 'G':
@@ -506,20 +519,29 @@ class Solver:
                 self.traversed_nodes[node]['color'] = (node, 'Green')
                 Clues.clue_position[node].add_clue_color('Green')
                 self.reverse_color_on_other_side(node, 'Green')
-        last_move = self.traversed_nodes.peek_last_two()
+        last_move = self.traversed_nodes.peek()
         if last_move:
             last_node, move = last_move
             color = None
             if 'color' in move:
-                color = move['color'][-1]
-            if color:
-                if last_node in Clues.clue_position and node in Clues.clue_position:
-                    Clues.direction_to(Clues.clue_position[last_node], Clues.clue_position[node])
-                    for edge in Clues.clue_position[last_node].surrounded_edges:
-                        if edge in Clues.clue_position[last_node].surrounded_edges:
-                            if self.check_edge_status(edge[0], edge[1], self.starting_graph) == 'x':
-                                self.traversed_nodes[node]['color'] = (node, color)
-                                Clues.clue_position[node].add_clue_color(color)
+                if move['color']:
+                    color = move['color'][-1]
+                if color:
+                    if last_node in Clues.clue_position and node in Clues.clue_position:
+                        Clues.direction_to(Clues.clue_position[last_node], Clues.clue_position[node])
+                        for edge in Clues.clue_position[last_node].surrounded_edges:
+                            if edge in Clues.clue_position[node].surrounded_edges:
+                                if self.check_edge_status(edge[0], edge[1], self.starting_graph) == 'x':
+                                    self.traversed_nodes[node]['color'] = (node, color)
+                                    Clues.clue_position[node].add_clue_color(color)
+                                elif self.check_edge_status(edge[0], edge[1], self.starting_graph) == 1:
+                                    reverse_color = None
+                                    if color == 'Green':
+                                        reverse_color = 'Blue'
+                                    elif color == 'Blue':
+                                        reverse_color = 'Green'
+                                    self.traversed_nodes[node]['color'] = (node, reverse_color)
+                                    Clues.clue_position[node].add_clue_color(reverse_color)
 
     def check_cell_status(self, the_edge1, the_edge2) -> tuple:
         """
@@ -534,7 +556,7 @@ class Solver:
         col = min(node1[1], node2[1], node3[1], node4[1])
         return row, col
 
-    def make_connection(self, node, neighbors):
+    def make_connection(self, node, neighbors) -> Union[bool, tuple]:
         """
         StackDict (all the valid moves) -> {(row, col): {'neighbor': (), 'move':[]}
 
@@ -548,7 +570,7 @@ class Solver:
         #     the_clue = self.starting_graph.nodes[node]['clue']
         #     # if self.check_edge_status(node, neighbor, self.starting_graph) == 0:
         if not self.visited_edge:
-
+            self.add_color(node, neighbors[0])
             self.starting_graph.add_edge(node, neighbors[0], relationship=1)
             print(f'node {node} neighbor {neighbors[0]}')
             print(self.starting_graph[node][neighbors[0]]['relationship'])
@@ -558,10 +580,9 @@ class Solver:
             self.visited_edge.append(the_edge)
             neighbors.remove(neighbors[0])
             self.traversed_nodes[node]['move'].append((the_edge, 1))
-            self.add_color(node, neighbors[0])
             if self.check_clue_status(node, self.starting_graph) == 2:
                 self.cross_out_edges_if_two_edges(node, self.starting_graph)
-            return True
+            return (node, neighbors[0])
         else:
             # if node[0] < len(self.starting_puzzle) and node[1] < len(self.starting_puzzle[1]):
             #     the_clue = Clues.clue_position[node]
@@ -581,19 +602,22 @@ class Solver:
                 for neighbor in neighbors:
                     if self.check_edge_status(node, neighbor, self.starting_graph) == 0:
                         # self.is_valid_connection()
-                        self.starting_graph.add_edge(node, neighbor, relationship=1)
+                        self.add_color(node, neighbor)
+                        if self.check_edge_status(node, neighbor, self.starting_graph) == 0:
+                            self.starting_graph.add_edge(node, neighbor, relationship=1)
+                        else:
+                            continue
                         print(f'node {node} neighbor {neighbor}')
                         print(self.starting_graph[node][neighbor]['relationship'])
                         the_edge = tuple(sorted((node, neighbor)))
                         self.visited_edge.append(the_edge)
                         neighbors.remove(neighbor)
                         self.traversed_nodes[node]['move'].append((the_edge, 1))
-                        self.add_color(node, neighbor)
                         # self.visited_node.append(node)
                         # self.visited_node.append(neighbors[0])
                         if self.check_clue_status(node, self.starting_graph) == 2:
                             self.cross_out_edges_if_two_edges(node, self.starting_graph)
-                        return True
+                        return (node, neighbor)
         # try:
         #     if node not in self.visited_node:
         #         status = self.check_edge_status(current_node, node, current_graph)
@@ -619,26 +643,38 @@ class Solver:
                         if move[-1] == 1:
                             for next_node in move[0]:
                                 if next_node != current_node:
+                                    if next_node in self.traversed_nodes:
+                                        self.loop_detection = True
+                                        self.backtrack()
                                     return next_node
+
+
+
 
     def find_valid_neighbors(self, node):
         valid_neighbors = []
-        neighbors = list(self.starting_graph.neighbors(node))
-        # if not neighbors:
+        # if node in Clues.clue_position:
+        #     if Clues.clue_position[node].color == 'Blue':
         #
-        potential_next_node = True
-        print(list(self.starting_graph.neighbors(node)))
-        # if node[0] < len(self.starting_puzzle) and node[1] < len(self.starting_puzzle[1]):
-        #     the_clue = Clues.clue_position[node]
-        #     if the_clue.clue == 'A':
-                # self.follow_alien_rule(node)
-        for neighbor in neighbors:
-            status = self.check_edge_status(neighbor, node, self.starting_graph)
-            if status == 1 and tuple(sorted((neighbor, node))) in self.solutions_found:
-                potential_next_node = False
-            if status != 'x' and status != 1:
-                valid_neighbors.append(neighbor)
-        return potential_next_node, valid_neighbors
+        if not list(self.starting_graph.neighbors(node)):
+            self.backtrack()
+        else:
+            neighbors = list(self.starting_graph.neighbors(node))
+            # if not neighbors:
+            #
+            potential_next_node = True
+            print(list(self.starting_graph.neighbors(node)))
+            # if node[0] < len(self.starting_puzzle) and node[1] < len(self.starting_puzzle[1]):
+            #     the_clue = Clues.clue_position[node]
+            #     if the_clue.clue == 'A':
+                    # self.follow_alien_rule(node)
+            for neighbor in neighbors:
+                status = self.check_edge_status(neighbor, node, self.starting_graph)
+                if status == 1 and tuple(sorted((neighbor, node))) in self.solutions_found:
+                    potential_next_node = False
+                if status != 'x' and status != 1:
+                    valid_neighbors.append(neighbor)
+            return potential_next_node, valid_neighbors
 
     def brute_force_solver(self):
         self.create_graph()
@@ -656,7 +692,7 @@ class Solver:
                 #     the_clue = Clues.clue_position[next_node]
                 #     if the_clue.clue == 'A':
                 #         self.follow_alien_rule(next_node)
-                successful_edge = self.is_valid_connection(next_round, neighbors)
+                successful_edge = self.is_valid_connection(connecting_edge)
                 if not successful_edge:
                     if self.loop_detection:
                         self.is_valid_solution()
@@ -675,19 +711,23 @@ class Solver:
                     raise ex
 
     def remake_connection(self, node, previous_move, neighbors):
-        neighbors.remove(neighbors[0])
         if node not in self.traversed_nodes:
             self.traversed_nodes[node] = {'neighbors': neighbors, 'move': []}
         for the_tuple in previous_move:
             if the_tuple[-1] == 1:
                 self.starting_graph.add_edge(the_tuple[0][0], the_tuple[0][1], relationship='x')
                 self.traversed_nodes[node]['move'].append((tuple(sorted((the_tuple[0][0], the_tuple[0][1]))), 'x'))
-                self.add_color(node, neighbors[0])
+                self.add_color(node, neighbors)
                 self.visited_node.append(the_tuple[0][0])
                 self.visited_node.append(the_tuple[0][1])
             elif the_tuple[-1] == 'x':
                 self.starting_graph.add_edge(the_tuple[0][0], the_tuple[0][1], relationship=1)
                 self.traversed_nodes[node]['move'].append((tuple(sorted((the_tuple[0][0], the_tuple[0][1]))), 1))
+                if the_tuple[0][0] != node:
+                    neighbors.remove(the_tuple[0][0])
+                elif the_tuple[0][1] != node:
+                    neighbors.remove(the_tuple[0][1])
+                self.add_color(node, neighbors)
                 self.visited_node.append(the_tuple[0][0])
                 self.visited_node.append(the_tuple[0][1])
         return True
@@ -696,9 +736,6 @@ class Solver:
         while True:
             last_move = self.traversed_nodes.popitem()
             # if there is a loop but not a solution
-            if self.loop_detection:
-                last_last_move = self.traversed_nodes.popitem()
-
             if last_move is None:
                 raise ValueError('Backtracked all the way to beginning. No more solutions.')
             if last_move[1]['neighbors']:
@@ -718,6 +755,7 @@ class Solver:
             else:
                 self.backtrack()
 
+            self.loop_detection = False
 
 
     def get_clue_hint(self):
