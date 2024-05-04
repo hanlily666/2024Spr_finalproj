@@ -15,4 +15,20 @@ Circled number: since in this variation there is no uncircled clue, all numbers 
                   This number counts the total squares visible looking north, south, east, and west from the coded location,
                   and includes the code square itself.
 
-![alt text](https://github.com/[username]/[reponame]/blob/[branch]/image.jpg?raw=true)
+### Data Structure
+
+I use a custom class StackDictionary to record each traversed node, `(0, 0) : {'neighbors': [(0, 1)], 'move': [(((0, 0), (1, 0)), 1)], 'color': None}}` 
+
+### Graph Visualization
+
+![alt text](https://github.com/hanlily666/Area_51_puzzle_variation/blob/main/graph.png)
+
+This is the current implementation result of the puzzle solver function. Currently, at the node (3, 2) it should have taken the move ((3, 2), (3, 3), 1). 
+However, PyCharm doesn't allow me to do that. I know it could be a bug in the code, but I have looked into this node several times, and I don't understand why 
+it cannot take (3, 3) which is (3, 2) neighbor after hitting the continue of the loop during the `self.make_connection` stage. 
+
+### Future work
+
+![alt text](https://github.com/hanlily666/Area_51_puzzle_variation/blob/main/sample_puzzle.jpg)
+
+Here is the desired result of the implementation. Using color and 'x' marker as a technique to mark the cells are helpful to imply the moves. 
