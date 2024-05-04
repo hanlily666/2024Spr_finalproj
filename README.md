@@ -15,3 +15,4 @@ Circled number: since in this variation there is no uncircled clue, all numbers 
                   This number counts the total squares visible looking north, south, east, and west from the coded location,
                   and includes the code square itself.
 
+![alt text](https://github.com/[username]/[reponame]/blob/[branch]/image.jpg?raw=true)
