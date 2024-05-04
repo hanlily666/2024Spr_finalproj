@@ -23,9 +23,16 @@ I use a custom class StackDictionary to record each traversed node, `(0, 0) : {'
 
 ![alt text](https://github.com/hanlily666/Area_51_puzzle_variation/blob/main/graph.png)
 
-This is the current implementation result of the puzzle solver function. Currently, at the node (3, 2) it should have taken the move ((3, 2), (3, 3), 1). 
-However, PyCharm doesn't allow me to do that. I know it could be a bug in the code, but I have looked into this node several times, and I don't understand why 
-it cannot take (3, 3) which is (3, 2) neighbor after hitting the continue of the loop during the `self.make_connection` stage. 
+I have successfully implemented the _alien_ and _cactus_ rule checking with the clue of the cell color, where the puzzle can be partially solved and cross out illegal moves (edges).
+However, based on the current implementation result of the puzzle solver function. At the node `(3, 2)` it should have taken the move `((3, 2), (3, 3), 1)`. 
+What I don't understand is that PyCharm doesn't allow me to do that. I know it could be a bug in the code, but I have looked into this node several times, and I don't understand why 
+it cannot take `(3, 3)` which is `(3, 2)` neighbor after hitting the `continue` of the loop during the `self.make_connection` stage. 
+
+I will keep looking at this problem. Hopefully, I can get the puzzle solver fully work soon.
+
+### Algorithm Analysis 
+
+For the puzzle solver class, if the puzzle size is n meaning n number of nodes in the puzzle, the Big-O is n, and Big-Theta is n, and Big-Omega is n.
 
 ### Future work
 
