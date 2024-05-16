@@ -30,12 +30,6 @@ it cannot take `(3, 3)` which is `(3, 2)` neighbor after hitting the `continue` 
 
 I will keep looking at this problem. Hopefully, I can get the puzzle solver fully work soon.
 
-### Algorithm Analysis 
-
-For the puzzle solver class, if the puzzle size is n meaning n number of nodes in the puzzle, the Big-O is n, and Big-Theta is n, and Big-Omega is n.
-Through the profiler output, you can also see that the `brute_force_solver` is called the most of the time. What follows are `draw_graph`, `make_connection` and `cross_out_edges_if_two_edges` 
-which does being executed repeatedly while traversing each node.
-
 ### Future work
 
 ![alt text](https://github.com/hanlily666/Area_51_puzzle_variation/blob/main/sample_puzzle.jpg)

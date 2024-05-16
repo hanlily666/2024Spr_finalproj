@@ -212,7 +212,9 @@ class Clues:
 
 
 class StackDictionary(dict):
-    """Subclass a standard dictionary and add convenience methods to make it
+    """
+        This StackDictionary Class is adapted from IS 597 DS course materials taught by Mr. John Weible.
+        Subclass a standard dictionary and add convenience methods to make it
         easier to use simultaneously as a stack of key/value pairs.
 
         Since Python 3.6+ the insertion order of dict keys is retained internally.
